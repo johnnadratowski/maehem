@@ -1,7 +1,7 @@
 {
   "name": "maehem",
   "description": "Pronounced \"Mayhem\"",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "main": "index.mjs",
   "dependencies": {
     "@open-wc/dev-server-hmr": "^0.1.2-next.0",
