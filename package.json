@@ -3,7 +3,7 @@
   "description": "Pronounced \"Mayhem\"",
   "version": "0.0.3",
   "main": "index.mjs",
-  "devDependencies": {
+  "dependencies": {
     "@open-wc/dev-server-hmr": "^0.1.2-next.0",
     "@web/dev-server": "^0.1.29"
   },
