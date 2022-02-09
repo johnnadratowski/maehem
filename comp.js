@@ -1,8 +1,14 @@
 const views = {}
 
+const config = {
+  componentPath: '',
+  debug: false,
+  verbose: false,
+}
+
 function getPath(name) {
-  if (window.DEFINE_PREFIX) {
-    return window.DEFINE_PREFIX + name.toLowerCase()
+  if (config.componentPath) {
+    return config.componentPath + name.toLowerCase()
   }
   return name.toLowerCase()
 }
@@ -10,6 +16,10 @@ function getPath(name) {
 class Component extends HTMLElement {
   static define() {
     customElements.define(this.name, this)
+  }
+
+  static configure(conf) {
+    Object.assign(config, conf)
   }
 
   static get observedAttributes() {
@@ -86,8 +96,12 @@ class Component extends HTMLElement {
       this._wireEvents()
       const eventName = `${name}_updated`
       if (this[eventName]) await this[eventName](newValue, oldValue, renderData)
-      this.$dispatch(`${name}change`, { detail: { oldValue, newValue, renderData } })
-      this.$dispatch(`change`, { detail: { oldValue, newValue, renderData, prop: name } })
+      this.$dispatch(`${name}change`, {
+        detail: { oldValue, newValue, renderData },
+      })
+      this.$dispatch(`change`, {
+        detail: { oldValue, newValue, renderData, prop: name },
+      })
     }
 
     Object.defineProperty(this, name, {
@@ -101,8 +115,8 @@ class Component extends HTMLElement {
   }
 
   isDebug() {
-    if (window.DEBUG !== undefined) {
-      return window.DEBUG
+    if (config.debug !== undefined) {
+      return config.debug
     }
     return true
   }
@@ -251,7 +265,7 @@ class Component extends HTMLElement {
       }
 
       if (!el || !el.length) {
-        if (VERBOSE) console.warn(`No events hooked up for ${prop}`)
+        if (config.verbose) console.warn(`No events hooked up for ${prop}`)
         continue
       }
 
