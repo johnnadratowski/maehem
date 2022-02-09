@@ -1,0 +1,23 @@
+{
+  "name": "maehem",
+  "description": "Pronounced \"Mayhem\"",
+  "version": "0.0.1",
+  "main": "index.mjs",
+  "devDependencies": {
+    "@open-wc/dev-server-hmr": "^0.1.2-next.0",
+    "@web/dev-server": "^0.1.29"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johnnadratowski/maehem.git"
+  },
+  "author": "John Nadratowski",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/johnnadratowski/maehem/issues"
+  },
+  "homepage": "https://github.com/johnnadratowski/maehem#readme"
+}
