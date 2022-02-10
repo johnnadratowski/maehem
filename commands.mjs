@@ -92,7 +92,7 @@ function previewComponent(componentPath, name, ...attrs) {
 
   async function main() {
     const server = await startDevServer({
-      argv: ['--open', `/${name}`],
+      argv: ['--open', `/${dir}`, '-c', './node_modules/maehem/web-dev-server.config.mjs'],
     })
   }
 
