@@ -6,6 +6,9 @@ const config = {
   verbose: false,
 }
 
+/**
+ * @param {string} name
+ */
 function getPath(name) {
   if (config.componentPath) {
     return config.componentPath + name.toLowerCase()
@@ -18,6 +21,9 @@ class Component extends HTMLElement {
     customElements.define(this.name, this)
   }
 
+  /**
+   * @param {any} {[key: string]: any}
+   */
   static configure(conf) {
     Object.assign(config, conf)
   }
@@ -25,8 +31,8 @@ class Component extends HTMLElement {
   static get observedAttributes() {
     return this.prototype
       ._getFields()
-      .filter((v) => v.kind === 'attr')
-      .map((v) => v.name)
+      .filter((/** @type {{ kind: string; }} */ v) => v.kind === 'attr')
+      .map((/** @type {{ name: any; }} */ v) => v.name)
   }
 
   constructor(defaults = {}, onConnected = null) {
@@ -37,6 +43,11 @@ class Component extends HTMLElement {
     this._onConnected = onConnected
   }
 
+  /**
+   * @param {string | number} name
+   * @param {any} oldValue
+   * @param {any} newValue
+   */
   attributeChangedCallback(name, oldValue, newValue) {
     if (oldValue == newValue) return
     if (this._attrs[name] != newValue) {
@@ -63,6 +74,9 @@ class Component extends HTMLElement {
     return this.fields ? this.fields() : []
   }
 
+  /**
+   * @param {(arg0: this) => any} def
+   */
   async _getDefault(def) {
     if (typeof def === 'function' && !(def instanceof HTMLElement)) {
       return await def(this)
@@ -70,6 +84,9 @@ class Component extends HTMLElement {
     return def
   }
 
+  /**
+   * @param {{ name: any; kind: string; default: any; required: any; }} field
+   */
   async _initField(field) {
     const name = field.name
     const isAttr = field.kind === 'attr'
@@ -86,7 +103,7 @@ class Component extends HTMLElement {
       throw new Error(`${field.name} is required for component ${this.nodeName}`)
     }
 
-    this['set_' + name] = async function (newValue) {
+    this['set_' + name] = async function (/** @type {string} */ newValue) {
       const oldValue = objs[name]
       if (newValue === oldValue) return
 
@@ -137,19 +154,32 @@ class Component extends HTMLElement {
     return this._el
   }
 
+  /**
+   * @param {string} sel
+   */
   $(sel) {
     return this.el.querySelector(sel)
   }
 
+  /**
+   * @param {string} sel
+   */
   $$(sel) {
     return this.el.querySelectorAll(sel)
   }
 
+  /**
+   * @param {any} id
+   */
   $T(id) {
     let node = this.$ID(id).content.cloneNode(true)
     node.$ = node.querySelector
     node.$$ = node.querySelectorAll
     node.$ID = node.getElementById
+    /**
+     * @param {{ innerHTML: any; appendChild: (arg0: HTMLElement) => any; replaceChildren: (arg0: HTMLElement) => any; }} child
+     * @param {() => any} builder
+     */
     function build(child, builder, append = true) {
       if (typeof builder === 'function') {
         child.innerHTML = builder()
@@ -160,10 +190,10 @@ class Component extends HTMLElement {
       }
       return child
     }
-    node.$build = (builder, append = true) => {
+    node.$build = (/** @type {any} */ builder, append = true) => {
       return build(node.children[0], builder, append)
     }
-    node.$$build = (builders, append = true) => {
+    node.$$build = (/** @type {string | any[]} */ builders, append = true) => {
       let singleBuilder = null
       if (Array.isArray(builders) && node.children.length != builders.length && builders.length != 1) {
         console.error(
@@ -185,14 +215,24 @@ class Component extends HTMLElement {
     return node
   }
 
+  /**
+   * @param {string} id
+   */
   $ID(id) {
     return this.$('#' + id)
   }
 
+  /**
+   * @param {string} event
+   * @param {CustomEventInit<any>} obj
+   */
   $dispatch(event, obj) {
     this.dispatchEvent(new CustomEvent(event, obj))
   }
 
+  /**
+   * @param {any} selector
+   */
   $mount(selector) {
     const el = document.querySelector(selector)
     if (!el) {
@@ -202,17 +242,24 @@ class Component extends HTMLElement {
     el.replaceWith(this)
   }
 
+  /**
+   * @param {string} name
+   */
   async _renderField(name) {
     if (this['render_' + name]) return await this['render_' + name]()
     return null
   }
 
+  /**
+   * @param {string} name
+   * @param {any} value
+   */
   async _setField(name, value) {
     if (this['set_' + name]) await this['set_' + name](value)
   }
 
   async _renderFields() {
-    this._getFields().forEach(async (k) => await this._renderField(k.name))
+    this._getFields().forEach(async (/** @type {{ name: any; }} */ k) => await this._renderField(k.name))
   }
 
   async _getView() {
@@ -269,12 +316,16 @@ class Component extends HTMLElement {
         continue
       }
 
-      el.forEach((el) => {
-        el.removeEventListener(event, this[prop])
-        if (!detach) {
-          el.addEventListener(event, this[prop])
+      el.forEach(
+        (
+          /** @type {{ removeEventListener: (arg0: string, arg1: any) => void; addEventListener: (arg0: string, arg1: any) => void; }} */ el
+        ) => {
+          el.removeEventListener(event, this[prop])
+          if (!detach) {
+            el.addEventListener(event, this[prop])
+          }
         }
-      })
+      )
     }
   }
 
