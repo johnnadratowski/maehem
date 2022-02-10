@@ -22,5 +22,8 @@
   "bugs": {
     "url": "https://github.com/johnnadratowski/maehem/issues"
   },
-  "homepage": "https://github.com/johnnadratowski/maehem#readme"
+  "homepage": "https://github.com/johnnadratowski/maehem#readme",
+  "devDependencies": {
+    "typescript": "^4.5.5"
+  }
 }
