@@ -29,7 +29,6 @@ const views = {}
  * The configuration for the comopnents
  * @typedef {Object} Configuration
  * @property {string} componentPath - The prefix of the URL where the components exist
- * @property {boolean} debug - True if in debug mode
  * @property {boolean} verbose - True to display verbose log messages
  */
 
@@ -46,7 +45,6 @@ const views = {}
  * */
 const config = {
   componentPath: '',
-  debug: false,
   verbose: false,
 }
 
@@ -81,7 +79,6 @@ class Component extends HTMLElement {
   /**
    * Configure the base component configurations
    * componentPath - The base URL path for the components
-   * debug - Turn on debug
    * verbose - Display verbose log messages
    * @param {Configuration} conf
    */
@@ -132,9 +129,18 @@ class Component extends HTMLElement {
    */
   async connectedCallback() {
     await this._initialize()
+    await this.onConnected()
     if (this._onConnected) {
       await this._onConnected(this)
     }
+  }
+
+  /**
+   * Called after connected - should be overriden by child
+   * @returns void
+   */
+  async onConnected() {
+    return // Should be overridden
   }
 
   /**
@@ -147,8 +153,8 @@ class Component extends HTMLElement {
   /**
    * Called by web-dev-server when a hot reload occurs
    */
-  hotReplacedCallback() {
-    this._initialize()
+  async hotReplacedCallback() {
+    await this._initialize()
   }
 
   /**
@@ -220,21 +226,10 @@ class Component extends HTMLElement {
   }
 
   /**
-   * True if this is in debug mode
-   * @returns boolean
-   */
-  isDebug() {
-    if (config.debug !== undefined) {
-      return config.debug
-    }
-    return true
-  }
-
-  /**
    * Initialize this component
    */
   async _initialize() {
-    this.el = this.attachShadow({ mode: this.isDebug() ? 'open' : 'closed' })
+    this.el = this.attachShadow({ mode: 'open' })
     for (const field of this.fields()) {
       await this._initField(field)
     }
@@ -283,7 +278,7 @@ class Component extends HTMLElement {
     node.$ = node.querySelector
     node.$$ = node.querySelectorAll
     node.$ID = (sel) => node.querySelector('#' + sel)
-    function build(child, builder, append = true) {
+    function build(child, builder, append = false) {
       if (typeof builder === 'function') {
         child.innerHTML = builder()
       } else if (builder instanceof HTMLElement) {
@@ -293,10 +288,10 @@ class Component extends HTMLElement {
       }
       return child
     }
-    node.$build = (builder, append = true) => {
+    node.$build = (builder, append = false) => {
       return build(node.children[0], builder, append)
     }
-    node.$$build = (builders, append = true) => {
+    node.$$build = (builders, append = false) => {
       let singleBuilder = null
       if (Array.isArray(builders) && node.children.length != builders.length && builders.length != 1) {
         console.error(
@@ -372,12 +367,12 @@ class Component extends HTMLElement {
    * Render all fields on this component
    */
   async _renderFields() {
-    this.fields().forEach(async (k) => await this._renderField(k.name))
+    await Promise.all(this.fields().map(async (k) => await this._renderField(k.name)))
   }
 
   /**
    * Download and return the view for this component
-   * @returns The view for this component
+   * @returns {Promise.<string>} The view for this component
    */
   async _getView() {
     try {
@@ -456,7 +451,7 @@ class Component extends HTMLElement {
     const name = this.nodeName.toLowerCase()
     const stylePath = getPath(name)
     const style = `<link rel="stylesheet" href="${stylePath}/${name}.css"></link>`
-    const view = await this._getView()
+    const view = this.noView ? '' : await this._getView()
     this.el.innerHTML = `${style}\n${view}`
 
     await this._renderFields()

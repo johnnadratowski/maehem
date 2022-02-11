@@ -54,8 +54,16 @@ switch (args[0]) {
   case 'preview':
     previewComponent(...args.slice(1))
     break
+  case 'serve':
+    serve(...args.slice(1))
+    break
   default:
     console.log(`Unknown command option: ${args[0]}`)
+    process.exit(9)
+}
+
+function scriptDir() {
+  return path.dirname(import.meta.url).substring(7)
 }
 
 function previewComponent(componentPath, name, ...attrs) {
@@ -70,13 +78,9 @@ function previewComponent(componentPath, name, ...attrs) {
     .map((x) => {
       const attr = x.split(':', 2)[0]
       const val = x.split(':', 2)[1]
-      console.log(x)
-      console.log(attr)
-      console.log(val)
       return `${attr}="${val}"`
     })
     .join(' ')
-  console.log(attributes)
   const html = `<html>
   <head>
     <script type="module" src="${name}/${name}.js"></script>
@@ -90,13 +94,23 @@ function previewComponent(componentPath, name, ...attrs) {
 
   fs.writeFileSync(index, html)
 
+  runServe('--open', `/${dir}`)
+}
+
+function runServe(...args) {
   async function main() {
-    const server = await startDevServer({
-      argv: ['--open', `/${dir}`, '-c', './node_modules/maehem/web-dev-server.config.mjs'],
+    const serverArgs = ['--debug', '-c', scriptDir() + '/web-dev-server.config.mjs', ...args]
+    console.log(serverArgs)
+    await startDevServer({
+      argv: serverArgs,
     })
   }
 
   main()
+}
+
+function serve(index) {
+  runServe('--open', `/`, '-a', path.resolve(index))
 }
 
 function makeComponent(componentPath, name) {
