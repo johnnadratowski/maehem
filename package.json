@@ -5,7 +5,8 @@
   "main": "index.js",
   "dependencies": {
     "@open-wc/dev-server-hmr": "^0.1.2-next.0",
-    "@web/dev-server": "^0.1.29"
+    "@web/dev-server": "^0.1.29",
+    "dotenv": "^16.0.0"
   },
   "bin": {
     "maehem": "./commands.mjs"

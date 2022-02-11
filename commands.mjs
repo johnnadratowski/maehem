@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import dotenv from 'dotenv'
 import path from 'path'
 import fs from 'fs'
 import { startDevServer } from '@web/dev-server'
@@ -62,6 +63,21 @@ switch (args[0]) {
     process.exit(9)
 }
 
+function envs() {
+  const env = dotenv.config()
+  if (!env.parsed) {
+    console.warn('No .env file found in this directory')
+    return {}
+  }
+
+  const output = {}
+  for (let k of Object.keys(env.parsed)) {
+    if (k.toLowerCase().includes('password')) continue
+    output[k] = env.parsed[k]
+  }
+  return output
+}
+
 function scriptDir() {
   return path.dirname(import.meta.url).substring(7)
 }
@@ -74,19 +90,22 @@ function previewComponent(componentPath, name, ...attrs) {
     process.exit(5)
   }
 
-  const attributes = attrs
-    .map((x) => {
-      const attr = x.split(':', 2)[0]
-      const val = x.split(':', 2)[1]
-      return `${attr}="${val}"`
-    })
-    .join(' ')
+  const attributes = attrs.reduce((output, x) => {
+    const attr = x.split(':', 2)[0]
+    const val = x.split(':', 2)[1]
+    output[attr] = val
+    return output
+  }, {})
   const html = `<html>
   <head>
-    <script type="module" src="${name}/${name}.js"></script>
+    <script src="${name}/env.js"></script>
+    <script type="module">
+    import Component from "./${name}/${name}.js"
+    new Component(JSON.parse('${JSON.stringify(attributes)}')).$mount("#content")
+    </script>
   </head>
   <body>
-    <${name} ${attributes}></${name}>
+    <div id="content"></div>
   </body>
 </html>
 `
@@ -94,7 +113,20 @@ function previewComponent(componentPath, name, ...attrs) {
 
   fs.writeFileSync(index, html)
 
+  const env = path.join(dir, `env.js`)
+  generatEnv(env)
+
   runServe('--open', `/${dir}`)
+}
+
+function generatEnv(env) {
+  const output = `
+    process = {
+      env: {}
+    }
+    process.env = JSON.parse('${JSON.stringify(envs())}')
+  `
+  fs.writeFileSync(env, output)
 }
 
 function runServe(...args) {
@@ -110,6 +142,10 @@ function runServe(...args) {
 }
 
 function serve(index) {
+  const absIndex = path.resolve(index)
+  const dir = path.dirname(absIndex)
+  const env = path.join(dir, `env.js`)
+  generatEnv(env)
   runServe('--open', `/`, '-a', path.resolve(index))
 }
 
