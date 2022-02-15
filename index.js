@@ -4,7 +4,7 @@
 const views = {}
 
 /**
- * @typedef {Object} TemplateExtension
+ * @typedef {Object} NodeExtension
  * @property {function} $ - alias for this.querySelector
  * @property {function} $$ - alias for this.querySelectorAll
  * @property {function} $ID - alias for this.querySelector with # prepended to sel
@@ -13,14 +13,18 @@ const views = {}
  */
 
 /**
- * @typedef {HTMLTemplateElement & TemplateExtension} Template
+ * @typedef {HTMLTemplateElement & NodeExtension} ExtendedTemplate
+ */
+
+/**
+ * @typedef {HTMLElement & NodeExtension} ExtendedNode
  */
 
 /**
  * The type defined for each attribute/state in the Comopnent
  * @typedef {Object} Field
  * @property {string} name - The name of the field
- * @property {fieldKind} kind - Either 'attr' or 'state
+ * @property {fieldKind|undefined} kind - Either 'attr' or 'state'. Defaults to 'state'
  * @property {any|undefined} default - the default value for the field
  * @property {boolean|undefined} required - True if this is a required attribute
  */
@@ -68,6 +72,55 @@ const fieldKind = {
   attr: 'attr',
 }
 
+/**
+ * Build markup under the child node using the given builder
+ * @param {Element} child The child node to build markup under
+ * @param {*} builder The builder that will create markup under the child, can be function, element, or string
+ * @param {boolean} append - True to append children vs replace children
+ * @returns The child that was passed into the function
+ */
+function build(child, builder, append = false) {
+  if (typeof builder === 'function') {
+    builder = builder()
+  }
+
+  if (builder instanceof HTMLElement) {
+    append ? child.appendChild(builder) : child.replaceChildren(builder)
+  } else if (Array.isArray(builder)) {
+    append ? child.append(...builder) : child.replaceChildren(...builder)
+  } else {
+    child.innerHTML = builder
+  }
+  return child
+}
+
+/**
+ * Build markup for each child under the given node
+ * @param {Element} node The node whose children we will build markup underto build markup under
+ * @param {*} builders Either a list of builders or a single builder to create markup under each child
+ * @param {boolean} append - True to append children vs replace children
+ * @returns The list of child nodes that were built
+ */
+function buildAll(node, builders, append = false) {
+  let singleBuilder = null
+  if (Array.isArray(builders) && node.children.length != builders.length && builders.length != 1) {
+    console.error(
+      `Number of template builders ${builders.length} doesn't match children ${node.children.length} for node/template ${node.id}`
+    )
+    // TODO
+    return null
+  }
+  if (Array.isArray(builders) && builders.length === 1) {
+    singleBuilder = builders[0]
+  } else if (!Array.isArray(builders)) {
+    singleBuilder = builders
+  }
+
+  return Array.from(node.children).map((child, idx) => {
+    return build(child, singleBuilder ? singleBuilder : builders[idx], append)
+  })
+}
+
 class Component extends HTMLElement {
   /**
    * Define this web component
@@ -93,9 +146,14 @@ class Component extends HTMLElement {
   static get observedAttributes() {
     return this.prototype
       .fields()
-      .filter((v) => v.kind === 'attr')
+      .filter((v) => v.kind && v.kind === fieldKind.attr)
       .map((v) => v.name)
   }
+
+  /**
+   * @property {boolean} - set to true if you do not need to download a view for this component
+   */
+  noView = false
 
   /**
    *
@@ -148,6 +206,15 @@ class Component extends HTMLElement {
    */
   disconnectedCallback() {
     this._wireEvents(true)
+    this.onDisconnected()
+  }
+
+  /**
+   * Called after disconnected - should be overriden by child
+   * @returns void
+   */
+  async onDisconnected() {
+    return // Should be overridden
   }
 
   /**
@@ -183,53 +250,58 @@ class Component extends HTMLElement {
    */
   async _initField(field) {
     const name = field.name
-    const isAttr = field.kind === fieldKind.attr
+    const isAttr = field.kind && field.kind === fieldKind.attr
     const objs = isAttr ? this._attrs : this._state
+
     if (this._defaults[name] !== undefined) {
-      objs[name] = await this._getDefault(this._defaults[name])
+      objs['_' + name] = await this._getDefault(this._defaults[name])
     } else if (isAttr) {
-      objs[name] = this.getAttribute(name) || (await this._getDefault(field.default))
+      objs['_' + name] = this.getAttribute(name) || (await this._getDefault(field.default))
     } else {
-      objs[name] = await this._getDefault(field.default)
+      objs['_' + name] = await this._getDefault(field.default)
     }
 
-    if (field.required && objs[name] === undefined) {
+    if (field.required && objs['_' + name] === undefined) {
       throw new Error(`${field.name} is required for component ${this.nodeName}`)
     }
 
-    this['set_' + name] = async function (newValue) {
-      const oldValue = objs[name]
-      if (newValue === oldValue) return
+    this['set_' + name] = this['set_' + name]
+      ? this['set_' + name]
+      : async function (newValue) {
+          const oldValue = objs[name]
+          if (newValue === oldValue) return
 
-      objs[name] = newValue
-      if (isAttr) this.setAttribute(name, newValue)
-      const renderData = await this._renderField(name)
-      this._wireEvents()
-      const eventName = `${name}_updated`
-      if (this[eventName]) await this[eventName](newValue, oldValue, renderData)
-      this.$dispatch(`${name}change`, {
-        detail: { oldValue, newValue, renderData },
-      })
-      this.$dispatch(`change`, {
-        detail: { oldValue, newValue, renderData, prop: name },
+          objs['_' + name] = newValue
+          if (isAttr) this.setAttribute(name, newValue)
+          const renderData = await this._renderField(name)
+          this._wireEvents()
+          const eventName = `${name}_updated`
+          if (this[eventName]) await this[eventName](newValue, oldValue, renderData)
+          this.$dispatch(`${name}_change`, {
+            detail: { oldValue, newValue, renderData },
+          })
+          this.$dispatch(`change`, {
+            detail: { oldValue, newValue, renderData, prop: name },
+          })
+        }
+
+    if (!objs[name]) {
+      Object.defineProperty(this, name, {
+        get() {
+          return objs['_' + name]
+        },
+        set(v) {
+          this['set_' + name](v)
+        },
       })
     }
-
-    Object.defineProperty(this, name, {
-      get() {
-        return objs[name]
-      },
-      set(v) {
-        this['set_' + name](v)
-      },
-    })
   }
 
   /**
    * Initialize this component
    */
   async _initialize() {
-    this.el = this.attachShadow({ mode: 'open' })
+    this.el = this.el ? this.el : this.attachShadow({ mode: 'open' })
     for (const field of this.fields()) {
       await this._initField(field)
     }
@@ -270,56 +342,53 @@ class Component extends HTMLElement {
     return this.el.querySelectorAll(sel)
   }
 
-  $T(id) {
-    /** @type {any} */ const template = this.$ID(id)
-
-    /** @type {Template} */
-    let node = template.content.cloneNode(true)
-    node.$ = node.querySelector
-    node.$$ = node.querySelectorAll
-    node.$ID = (sel) => node.querySelector('#' + sel)
-    function build(child, builder, append = false) {
-      if (typeof builder === 'function') {
-        child.innerHTML = builder()
-      } else if (builder instanceof HTMLElement) {
-        append ? child.appendChild(builder) : child.replaceChildren(builder)
-      } else {
-        child.innerHTML = builder
-      }
-      return child
-    }
-    node.$build = (builder, append = false) => {
-      return build(node.children[0], builder, append)
-    }
-    node.$$build = (builders, append = false) => {
-      let singleBuilder = null
-      if (Array.isArray(builders) && node.children.length != builders.length && builders.length != 1) {
-        console.error(
-          `Number of template builders ${builders.length} doesn't match children ${node.children.length} for template ${id}`
-        )
-        // TODO
-        return null
-      }
-      if (Array.isArray(builders) && builders.length === 1) {
-        singleBuilder = builders[0]
-      } else if (!Array.isArray(builders)) {
-        singleBuilder = builders
-      }
-
-      return Array.from(node.children).map((child, idx) => {
-        return build(child, singleBuilder ? singleBuilder : builders[idx], append)
-      })
-    }
+  /**
+   * Extend the given node with methods
+   * @param {ExtendedNode|ExtendedTemplate} node The template/node we're extending
+   * @param {Element} buildNode The node to build under
+   * @returns {(*} The extended element
+   */
+  _extendElem(node, buildNode = node) {
+    node.$ = node.$ ? node.$ : node.querySelector
+    node.$$ = node.$$ ? node.$$ : node.querySelectorAll
+    node.$ID = node.$ID ? node.$ID : (sel) => node.querySelector('#' + sel)
+    node.$build = node.$build
+      ? node.$build
+      : (builder, append = false) => {
+          return build(buildNode, builder, append)
+        }
+    node.$$build = node.$$build
+      ? node.$$build
+      : (builders, append = false) => {
+          return buildAll(node, builders, append)
+        }
     return node
   }
 
   /**
    * Alias for `this.el.querySelector` and prefixing with a #
    * @param {string} id - The selector to use
-   * @returns {HTMLElement}
+   * @returns {ExtendedTemplate}
+   */
+  $T(id) {
+    /** @type {any} */ const template = this.$ID(id)
+
+    /** @type {ExtendedTemplate} */
+    const node = template.content.cloneNode(true)
+    return this._extendElem(node, node.children[0])
+  }
+
+  /**
+   * Alias for `this.el.querySelector` and prefixing with a #
+   * @param {string} id - The selector to use
+   * @returns {ExtendedNode}
    */
   $ID(id) {
-    return this.$('#' + id)
+    /** @type {any} */ const element = this.$('#' + id)
+
+    /** @type {ExtendedNode} */
+    const node = element
+    return this._extendElem(node)
   }
 
   /**

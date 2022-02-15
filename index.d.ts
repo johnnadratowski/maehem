@@ -1,4 +1,4 @@
-declare module '[maehem]' {
+declare module 'maehem' {
   export default Component
   interface Configuration {
     [key: string]: any
@@ -22,7 +22,15 @@ declare module '[maehem]' {
 
   type onConnected = (self: Component) => void
 
-  interface Template extends HTMLElement {
+  interface ExtendedTemplate extends HTMLTemplateElement {
+    $(sel: string): HTMLElement
+    $$(sel: string): HTMLElement[]
+    $ID(id: string): HTMLElement
+    $build(builder: any, append: boolean): HTMLElement
+    $$build(builder: any, append: boolean): HTMLElement[]
+  }
+
+  interface ExtendedNode extends HTMLElement {
     $(sel: string): HTMLElement
     $$(sel: string): HTMLElement[]
     $ID(id: string): HTMLElement
@@ -34,6 +42,7 @@ declare module '[maehem]' {
     static define(): void
     static configure(conf: Configuration): void
     static get observedAttributes(): string[]
+    noView: boolean
     constructor(defaults?: State, onConnected?: onConnected)
     _defaults: State
     _attrs: State
@@ -43,7 +52,7 @@ declare module '[maehem]' {
     connectedCallback(): Promise<void>
     disconnectedCallback(): void
     hotReplacedCallback(): void
-    _getFields(): Field[]
+    fields(): Field[]
     _getDefault(def: any): Promise<any>
     _initField(field: Field): Promise<void>
     isDebug(): boolean
@@ -53,8 +62,8 @@ declare module '[maehem]' {
     _el: HTMLElement
     $(sel: string): HTMLElement
     $$(sel: string): HTMLElement[]
-    $T(id: string): Template
-    $ID(id: string): HTMLElement
+    $T(id: string): ExtendedTemplate
+    $ID(id: string): ExtendedNode
     $dispatch(event: string, obj: any): void
     $mount(selector: string): void
     _renderField(name: string): Promise<any>

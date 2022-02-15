@@ -175,7 +175,7 @@ function makeComponent(componentPath, name) {
   createFile(html)
   createFile(js)
 
-  const jsTemplate = `import Component from '../comp.js'
+  const jsTemplate = `import Component from '../../node_modules/maehem/index.js'
 
 export default class ${className} extends Component {
   static name = '${name}'
@@ -184,12 +184,24 @@ export default class ${className} extends Component {
     return [
     ]
   }
+
+  async onConnected() {
+    return
+  }
 }
 
 ${className}.define()
 `
 
   fs.writeFileSync(js, jsTemplate)
+
+  const htmlTemplate = `<template id="child-items">
+  <div class="child-item"></div>
+</template>
+
+<div id="items"></div>`
+
+  fs.writeFileSync(html, htmlTemplate)
 
   console.log(`Component ${name} successfully created at ${dir}`)
 }

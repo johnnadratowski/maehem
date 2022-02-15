@@ -2,7 +2,8 @@
   "name": "maehem",
   "description": "Pronounced \"Mayhem\"",
   "version": "0.0.10",
-  "main": "index.js",
+  "main": "index",
+  "typings": "index",
   "dependencies": {
     "@open-wc/dev-server-hmr": "^0.1.2-next.0",
     "@web/dev-server": "^0.1.29",
