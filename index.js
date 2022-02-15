@@ -1,5 +1,5 @@
 /**
- * @type {Object.<string, string>} views - the views loaded from the components index.html
+ * @type {Object.<string, string|Promise>} views - the views loaded from the components index.html
  */
 const views = {}
 
@@ -520,7 +520,19 @@ class Component extends HTMLElement {
     const name = this.nodeName.toLowerCase()
     const stylePath = getPath(name)
     const style = `<link rel="stylesheet" href="${stylePath}/${name}.css"></link>`
-    const view = this.noView ? '' : await this._getView()
+    let view = ''
+    if (!this.noView) {
+      if (!views[name]) {
+        views[name] = this._getView()
+      }
+
+      if (views[name] instanceof Promise) {
+        view = await views[name]
+      } else {
+        /** @type {*} */ const viewStr = views[name]
+        view = viewStr
+      }
+    }
     this.el.innerHTML = `${style}\n${view}`
 
     await this._renderFields()
